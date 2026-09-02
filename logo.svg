@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">EnergiaSentinela IA</title>
+  <desc id="desc">Escudo tecnológico com raio e circuitos</desc>
+  <defs>
+    <linearGradient id="g" x1="24" y1="18" x2="104" y2="110" gradientUnits="userSpaceOnUse"><stop stop-color="#65f5b1"/><stop offset="1" stop-color="#20c977"/></linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect x="5" y="5" width="118" height="118" rx="31" fill="#071611" stroke="#234337" stroke-width="2"/>
+  <path d="M64 17 102 31v29c0 24-14 43-38 53-24-10-38-29-38-53V31l38-14Z" fill="#0b2119" stroke="url(#g)" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M73 30 43 66h20L52 98l34-43H66l7-25Z" fill="url(#g)" stroke="#83f7c1" stroke-width="1.5" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M27 48h8l6 6M101 77h-8l-6 6" fill="none" stroke="#4bf0a0" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="25" cy="48" r="4" fill="#071611" stroke="#4bf0a0" stroke-width="3"/><circle cx="103" cy="77" r="4" fill="#071611" stroke="#4bf0a0" stroke-width="3"/>
+</svg>
