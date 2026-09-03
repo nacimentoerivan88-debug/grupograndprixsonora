@@ -1,13 +1,18 @@
 const defaultPoints=[
-{id:'QC34-RS01',asset:'Quadro Compressores 3 e 4',component:'Relé térmico de sobrecarga',temp:75.6,ref:40,current:38.4,loss:31.8,cost:286.2,risk:94,p:'P20',action:'Inspecionar bornes e aplicar terminal prensado'},
-{id:'QD-COMP-DJ01',asset:'QD — Compressores',component:'Disjuntor principal',temp:57.3,ref:40,current:31.2,loss:18.6,cost:167.4,risk:82,p:'P20',action:'Verificar oxidação e reapertar conexão'},
-{id:'CF-CT02',asset:'Câmara Fria',component:'Contator de acionamento',temp:51.9,ref:40,current:27.8,loss:12.4,cost:111.6,risk:68,p:'P10',action:'Programar reaperto na próxima parada'},
-{id:'QC34-CT03',asset:'Quadro Compressores 3 e 4',component:'Contator 03',temp:49.8,ref:40,current:25.1,loss:9.7,cost:87.3,risk:57,p:'P10',action:'Acompanhar e intervir em parada programada'},
-{id:'QC34-CT04',asset:'Quadro Compressores 3 e 4',component:'Contator 04',temp:49.4,ref:40,current:24.9,loss:8.9,cost:80.1,risk:51,p:'P5',action:'Intensificar monitoramento térmico'},
-{id:'CTF20-DJ01',asset:'CTF 20',component:'Disjuntor',temp:47.6,ref:40,current:22.3,loss:6.2,cost:55.8,risk:38,p:'P1',action:'Manter acompanhamento de rotina'}];
+{id:'QC34-RS01',asset:'Quadro Compressores 3 e 4',component:'Relé térmico de sobrecarga',temp:75.6,ref:40,current:38.4,loss:318,cost:286.2,risk:94,p:'P20',action:'Inspecionar bornes e aplicar terminal prensado'},
+{id:'QD-COMP-DJ01',asset:'QD — Compressores',component:'Disjuntor principal',temp:57.3,ref:40,current:31.2,loss:186,cost:167.4,risk:82,p:'P20',action:'Verificar oxidação e reapertar conexão'},
+{id:'CF-CT02',asset:'Câmara Fria',component:'Contator de acionamento',temp:51.9,ref:40,current:27.8,loss:124,cost:111.6,risk:68,p:'P10',action:'Programar reaperto na próxima parada'},
+{id:'QC34-CT03',asset:'Quadro Compressores 3 e 4',component:'Contator 03',temp:49.8,ref:40,current:25.1,loss:97,cost:87.3,risk:57,p:'P10',action:'Acompanhar e intervir em parada programada'},
+{id:'QC34-CT04',asset:'Quadro Compressores 3 e 4',component:'Contator 04',temp:49.4,ref:40,current:24.9,loss:89,cost:80.1,risk:51,p:'P5',action:'Intensificar monitoramento térmico'},
+{id:'CTF20-DJ01',asset:'CTF 20',component:'Disjuntor',temp:47.6,ref:40,current:22.3,loss:62,cost:55.8,risk:38,p:'P1',action:'Manter acompanhamento de rotina'}];
 const clone=data=>JSON.parse(JSON.stringify(data));
 let points=JSON.parse(localStorage.getItem('energiaSentinelaPoints')||'null')||clone(defaultPoints);
 let plantConfig=JSON.parse(localStorage.getItem('energiaSentinelaConfig')||'null')||{company:'Planta Sonora',unit:'Unidade 01',tariff:.9};
+if(localStorage.getItem('energiaSentinelaDataModel')!=='2.1'){
+  const savedTotal=points.reduce((sum,p)=>sum+(Number(p.loss)||0),0);
+  if(savedTotal>0&&savedTotal<200)points.forEach(p=>{p.loss*=10;p.cost=p.loss*plantConfig.tariff});
+  localStorage.setItem('energiaSentinelaPoints',JSON.stringify(points));localStorage.setItem('energiaSentinelaDataModel','2.1');
+}
 let currentFilter='Todos',selectedId=points[0].id,inspectionScheduled=false,toastTimer;
 const $=id=>document.getElementById(id),br=n=>n.toFixed(1).replace('.',','),money=n=>n.toFixed(2).replace('.',',');
 function renderFilters(){$('filters').innerHTML=['Todos','P20','P10','P5','P1'].map(f=>`<button class="${f===currentFilter?'on':''}" data-filter="${f}">${f}</button>`).join('')}
@@ -36,16 +41,32 @@ function renderChart(period='24h'){
   svg.querySelectorAll('.chart-hover').forEach(hit=>{hit.addEventListener('pointermove',e=>{const i=+hit.dataset.index,tip=$('chartTooltip');tip.innerHTML=`<b>Leitura ${i+1}</b><br>Real: ${data.real[i]} kWh<br>Esperado: ${data.expected[i]} kWh`;tip.classList.remove('hidden');const box=document.querySelector('.energy-chart').getBoundingClientRect();tip.style.left=`${Math.min(e.clientX-box.left+10,box.width-135)}px`;tip.style.top=`${Math.max(5,e.clientY-box.top-68)}px`});hit.addEventListener('pointerleave',()=>$('chartTooltip').classList.add('hidden'))});
 }
 
-function updatePlantHeader(){document.querySelector('.topbar-center>span:first-child').textContent=`${plantConfig.company} · ${plantConfig.unit}`;$('companyInput').value=plantConfig.company;$('unitInput').value=plantConfig.unit;$('tariffInput').value=plantConfig.tariff.toFixed(2)}
+function updatePlantHeader(){document.querySelector('.topbar-center>span:first-child').textContent=`${plantConfig.company} · ${plantConfig.unit}`;$('companyInput').value=plantConfig.company;$('unitInput').value=plantConfig.unit;$('tariffInput').value=plantConfig.tariff.toFixed(2);updateDashboardTotals()}
+function updateDashboardTotals(){const totalLoss=points.reduce((sum,p)=>sum+(Number(p.loss)||0),0),totalCost=totalLoss*plantConfig.tariff;$('totalLossValue').textContent=br(totalLoss);$('totalCostValue').textContent=`${currency(totalCost)}/mês`;$('tariffLabel').textContent=`Tarifa simulada: ${currency(plantConfig.tariff)}/kWh`;$('annualPotential').textContent=(totalCost*12/1000).toFixed(1).replace('.',',');$('roiEnergy').value=totalCost.toFixed(2);calculateROI()}
 function renderEditor(){const select=$('editorPoint');select.innerHTML=points.map(p=>`<option value="${p.id}">${p.id} · ${p.asset}</option>`).join('');select.value=selectedId;if(!points.some(p=>p.id===selectedId))selectedId=points[0]?.id;loadEditorPoint()}
 function loadEditorPoint(){const p=points.find(x=>x.id===$('editorPoint').value)||points[0];if(!p)return;$('editTemp').value=p.temp;$('editRef').value=p.ref;$('editCurrent').value=p.current;$('editLoss').value=p.loss;$('editRisk').value=p.risk;$('editPriority').value=p.p}
 function saveManagedData(){const p=points.find(x=>x.id===$('editorPoint').value);plantConfig={company:$('companyInput').value.trim()||'Planta Sonora',unit:$('unitInput').value.trim()||'Unidade 01',tariff:Math.max(0,Number($('tariffInput').value)||.9)};if(p){p.temp=Number($('editTemp').value)||0;p.ref=Number($('editRef').value)||0;p.current=Number($('editCurrent').value)||0;p.loss=Number($('editLoss').value)||0;p.risk=Math.min(100,Math.max(0,Number($('editRisk').value)||0));p.p=$('editPriority').value;p.cost=p.loss*plantConfig.tariff}localStorage.setItem('energiaSentinelaPoints',JSON.stringify(points));localStorage.setItem('energiaSentinelaConfig',JSON.stringify(plantConfig));updatePlantHeader();renderFilters();renderRows();selectPoint(p?.id||points[0].id,false);$('manageModal').classList.add('hidden')}
 function addPoint(){const next=points.length+1,id=`NOVO-${String(next).padStart(2,'0')}`;points.push({id,asset:'Novo equipamento',component:'Componente a configurar',temp:40,ref:40,current:0,loss:0,cost:0,risk:10,p:'P1',action:'Acompanhar leitura inicial'});selectedId=id;renderEditor();$('editorPoint').value=id;loadEditorPoint()}
 function exportData(){const blob=new Blob([JSON.stringify({config:plantConfig,points},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='energia-sentinela-dados.json';a.click();URL.revokeObjectURL(url)}
 function importData(file){const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(!Array.isArray(data.points)||!data.points.length)throw new Error();points=data.points;plantConfig=data.config||plantConfig;selectedId=points[0].id;localStorage.setItem('energiaSentinelaPoints',JSON.stringify(points));localStorage.setItem('energiaSentinelaConfig',JSON.stringify(plantConfig));updatePlantHeader();renderEditor();renderFilters();renderRows();selectPoint(selectedId,false)}catch{alert('O arquivo selecionado não contém dados válidos.')}};reader.readAsText(file)}
+const appVersion='2.1.0';
+const currency=value=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value);
+function calculateROI(){
+  const investment=Math.max(0,Number($('roiInvestment').value)||0),energy=Math.max(0,Number($('roiEnergy').value)||0),downtime=Math.max(0,Number($('roiDowntime').value)||0),maintenance=Math.max(0,Number($('roiMaintenance').value)||0);
+  const monthly=energy+downtime+maintenance,payback=monthly>0?investment/monthly:Infinity,roi=investment>0?((monthly*12-investment)/investment)*100:0;
+  $('monthlyBenefit').textContent=currency(monthly);
+  $('paybackMonths').textContent=Number.isFinite(payback)?`${payback.toFixed(1).replace('.',',')} meses`:'Sem retorno';
+  $('annualRoi').textContent=`${Math.round(roi)}%`;
+}
+function openUpdates(){
+  $('updatesPanel').classList.remove('hidden');$('releaseToast').classList.add('hidden');$('updatesBadge').classList.add('read');localStorage.setItem('energiaSentinelaVersion',appVersion);
+}
+function closeUpdates(){$('updatesPanel').classList.add('hidden')}
 $('filters').addEventListener('click',e=>{const b=e.target.closest('button[data-filter]');if(!b)return;currentFilter=b.dataset.filter;renderFilters();renderRows()});
 $('rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(row)selectPoint(row.dataset.id)});
 $('simulateButton').addEventListener('click',simulateAnomaly);$('toastClose').addEventListener('click',hideToast);$('scheduleButton').addEventListener('click',toggleSchedule);$('menuButton').addEventListener('click',()=>$('sidebar').classList.toggle('open'));document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>$('sidebar').classList.remove('open')));
 $('chartPeriod').addEventListener('change',e=>renderChart(e.target.value));$('manageButton').addEventListener('click',()=>{renderEditor();$('manageModal').classList.remove('hidden')});$('modalClose').addEventListener('click',()=>$('manageModal').classList.add('hidden'));$('manageModal').addEventListener('click',e=>{if(e.target===$('manageModal'))$('manageModal').classList.add('hidden')});$('editorPoint').addEventListener('change',loadEditorPoint);$('saveData').addEventListener('click',saveManagedData);$('addPoint').addEventListener('click',addPoint);$('exportData').addEventListener('click',exportData);$('importData').addEventListener('click',()=>$('importFile').click());$('importFile').addEventListener('change',e=>e.target.files[0]&&importData(e.target.files[0]));$('resetData').addEventListener('click',()=>{if(confirm('Restaurar todos os dados da demonstração?')){points=clone(defaultPoints);plantConfig={company:'Planta Sonora',unit:'Unidade 01',tariff:.9};selectedId=points[0].id;localStorage.removeItem('energiaSentinelaPoints');localStorage.removeItem('energiaSentinelaConfig');renderEditor();updatePlantHeader();renderRows();selectPoint(selectedId,false)}});document.addEventListener('keydown',e=>{if(e.key==='Escape')$('manageModal').classList.add('hidden')});
+$('updatesButton').addEventListener('click',()=>$('updatesPanel').classList.contains('hidden')?openUpdates():closeUpdates());$('updatesClose').addEventListener('click',closeUpdates);$('viewUpdates').addEventListener('click',openUpdates);$('releaseClose').addEventListener('click',()=>$('releaseToast').classList.add('hidden'));['roiInvestment','roiEnergy','roiDowntime','roiMaintenance'].forEach(id=>$(id).addEventListener('input',calculateROI));
 const sections=[...document.querySelectorAll('main section[id]')],navLinks=[...document.querySelectorAll('.nav-item,.mobile-nav a')];if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>{const visible=entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];if(!visible)return;navLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')===`#${visible.target.id}`))},{rootMargin:'-20% 0px -60% 0px',threshold:[0,.25,.6]});sections.forEach(s=>observer.observe(s))}
-renderFilters();renderRows();selectPoint(selectedId,false);updatePlantHeader();renderChart();
+renderFilters();renderRows();selectPoint(selectedId,false);updatePlantHeader();renderChart();calculateROI();
+if(localStorage.getItem('energiaSentinelaVersion')===appVersion){$('updatesBadge').classList.add('read')}else{setTimeout(()=>$('releaseToast').classList.remove('hidden'),900)}
